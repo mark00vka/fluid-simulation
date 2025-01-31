@@ -14,6 +14,8 @@ var particles : Array[Particle]
 
 
 var always_on_top = true
+@onready var viewport_size : Vector2i = DisplayServer.window_get_size()
+
 		
 func _ready() -> void:
 	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_ALWAYS_ON_TOP, always_on_top)
@@ -46,21 +48,21 @@ class Particle extends Simulation:
 	var pos: Vector2
 	var velocity: Vector2
 	
-	func _init(pos, vel) -> void:
-		self.pos = pos
+	func _init(p, vel) -> void:
+		self.pos = p
 		velocity = vel
 	
 	func update(delta : float):
+		velocity.y += gravity * delta
+		position += velocity * delta
 		handle_collision()
-		velocity.y += gravity * delta;
-		position += velocity * delta;
 		
 	func handle_collision():
-		if position.y > 200:
+		if position.y > viewport_size.y / 2:
 			velocity.y = -velocity.y * damping
-			position.y = 200
+			position.y = viewport_size.y / 2
 			
-		if  position.y < -200:
+		if  position.y < -viewport_size.y / 2:
 			velocity.y = -velocity.y * damping
-			position.y = -200
+			position.y = -viewport_size.y / 2
 	
