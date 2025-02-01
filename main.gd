@@ -7,27 +7,29 @@ extends Node2D
 @export var particle_radius : float = 5.0
 @export var separation : float = 5.0
 @export var gravity : float = 200
-@export var damping : float = 0.5
+@export var damping : float = 1.0
+
+@onready var viewport_size : Vector2i = DisplayServer.window_get_size()
 
 
 var particles : Array[Particle]
 
 
 var always_on_top = true
-@onready var viewport_size : Vector2i = DisplayServer.window_get_size()
 
-		
+
 func _ready() -> void:
 	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_ALWAYS_ON_TOP, always_on_top)
+	Particle.simulation = self
 	for i in range(number_of_particles):
-		var x = (i % number_of_rows) * (particle_radius * 2 + separation)
-		var y = floor(i / number_of_rows) *  (particle_radius * 2 + separation)
+		var x = (i % number_of_rows - number_of_rows / 2) * (particle_radius * 2 + separation)
+		var y = floor(i / number_of_rows - (number_of_particles / number_of_rows / 2)) * (particle_radius * 2 + separation)
 		var pos := Vector2(x, y)
 		particles.append(Particle.new(pos, starting_velocity))
 
 
 func _process(delta: float) -> void:
-	for i in range(number_of_particles):
+	for i in range(particles.size()):
 		particles[i].update(delta)
 	queue_redraw()
 
@@ -43,26 +45,30 @@ func _input(event):
 		DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_ALWAYS_ON_TOP, always_on_top)
 		print("Always on top:", always_on_top)
 		
+	if event is InputEventKey and event.pressed and event.keycode == KEY_R:
+		get_tree().reload_current_scene()
+		
 	
-class Particle extends Simulation:
-	var pos: Vector2
+class Particle:
+	var position: Vector2
 	var velocity: Vector2
+	static var simulation: Simulation
 	
-	func _init(p, vel) -> void:
-		self.pos = p
+	func _init(pos, vel) -> void:
+		position = pos
 		velocity = vel
 	
 	func update(delta : float):
-		velocity.y += gravity * delta
+		velocity.y += simulation.gravity * delta
 		position += velocity * delta
 		handle_collision()
 		
 	func handle_collision():
-		if position.y > viewport_size.y / 2:
-			velocity.y = -velocity.y * damping
-			position.y = viewport_size.y / 2
+		if position.y > simulation.viewport_size.y / 2 - simulation.particle_radius:
+			velocity.y *= -1 * simulation.damping
+			position.y = simulation.viewport_size.y / 2 - simulation.particle_radius
 			
-		if  position.y < -viewport_size.y / 2:
-			velocity.y = -velocity.y * damping
-			position.y = -viewport_size.y / 2
+		if  position.y < -simulation.viewport_size.y / 2 + simulation.particle_radius:
+			velocity.y *= -1 * simulation.damping
+			position.y = -simulation.viewport_size.y / 2 + simulation.particle_radius
 	
