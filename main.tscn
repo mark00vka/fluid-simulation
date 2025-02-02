@@ -1,8 +1,36 @@
-[gd_scene load_steps=2 format=3 uid="uid://m682l2bjlw86"]
+[gd_scene load_steps=3 format=3 uid="uid://m682l2bjlw86"]
 
 [ext_resource type="Script" path="res://main.gd" id="1_jfgaf"]
 
-[node name="Main" type="Node2D"]
+[sub_resource type="Gradient" id="Gradient_54mrv"]
+offsets = PackedFloat32Array(0, 0.485149, 1)
+colors = PackedColorArray(0, 0.316667, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1)
+
+[node name="Main" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 script = ExtResource("1_jfgaf")
+particleRadius = 4.0
+smoothingRadius = 90.0
+gravity = 0.0
+damping = 0.4
+targetDensity = 0.024
+pressureMultiplier = 10.0
+densityGradient = SubResource("Gradient_54mrv")
+
+[node name="ColorRect" type="ColorRect" parent="."]
+visible = false
+show_behind_parent = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 
 [node name="Camera2D" type="Camera2D" parent="."]
+anchor_mode = 0
