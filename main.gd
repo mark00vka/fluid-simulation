@@ -23,30 +23,35 @@ const mass = 1
 @export_range(1, 10, 0.1) var pressureMultiplier : float = 1.0
 @export var densityGradient : Gradient
 
-@onready var viewportSize : Vector2i = DisplayServer.window_get_size()
+var viewportSize : Vector2i = DisplayServer.window_get_size()
 
 
+var spatialLookup: SpatialLookup = SpatialLookup.new()
 var particles : Array[Particle]
-
-
 var always_on_top = true
 
 
 func _ready() -> void:
 	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_ALWAYS_ON_TOP, always_on_top)
 	Particle.simulation = self
+	spatialLookup.simulation = self
+	
 	for i in range(numberOfParticles):
-		var x = (i % numberOfRows - numberOfRows / 2) * (particleRadius * 2 + separation)
-		var y = floor(i / numberOfRows - (numberOfParticles / numberOfRows / 2)) * (particleRadius * 2 + separation)
-		x = randi_range(0, viewportSize.x)
-		y = randi_range(0, viewportSize.y)
+		#var x = (i % numberOfRows - numberOfRows / 2) * (particleRadius * 2 + separation)
+		#var y = floor(i / numberOfRows - (numberOfParticles / numberOfRows / 2)) * (particleRadius * 2 + separation)
+		var x = randi_range(0, viewportSize.x)
+		var y = randi_range(0, viewportSize.y)
 		var pos := Vector2(x, y)
 		particles.append(Particle.new(pos, startingVelocity))
+		
+	spatialLookup.generateSpatialLookup()
 
 
 func _process(delta: float) -> void:
 	if Engine.get_process_frames() % 100 != 0:
 		pass
+	
+	spatialLookup.generateSpatialLookup()
 		
 	for i in range(particles.size()):
 		particles[i].update_densities()
@@ -69,33 +74,26 @@ func _draw() -> void:
 			color.a = 0.3
 			draw_circle(Vector2i(i, j) * s, s, color)
 			
-	for particle in particles:
-		var densityError = inverse_lerp(targetDensity * 0.5, targetDensity * 1.5, particle.density)
-		draw_circle(particle.position, particleRadius, Color.BLACK)
+	var selected_particles = spatialLookup.get_particle_indices(get_global_mouse_position())
+	
+	for i in range(particles.size()):
+		var densityError = inverse_lerp(targetDensity * 0.5, targetDensity * 1.5, particles[i].density)
+		if i in selected_particles:
+			draw_circle(particles[i].position, particleRadius, Color.REBECCA_PURPLE)
+		else:
+			draw_circle(particles[i].position, particleRadius, Color.BLACK)
 		
 		
 func sample_gradient(l : float):
 	return densityGradient.sample(l)
 		
-		
-func smoothing_kernel(radius: float, dst: float):
-	if dst >= radius: return 0
-	var volume = PI * pow(radius, 3) / 6
-	return (radius - dst) * (radius - dst) / volume
-
-	
-func smoothing_kernel_derivative(radius: float, dst: float):
-	if dst >= radius: return 0
-	var s = - 12 / PI / pow(radius, 3)
-	return s * (radius - dst)
-
 
 func calculate_density(pos: Vector2):
 	var density = 0
 	
 	for particle in particles:
 		var dst = pos.distance_to(particle.position)
-		var influence = smoothing_kernel(smoothingRadius, dst)
+		var influence = SmoothingFunction.smoothing_kernel(smoothingRadius, dst)
 		density += mass * influence
 		
 	return density
@@ -113,7 +111,7 @@ func calculate_property(pos: Vector2):
 	for particle in particles:
 		var density = particle.density
 		var dst = pos.distance_to(particle.position)
-		var influence = smoothing_kernel(smoothingRadius, dst)
+		var influence = SmoothingFunction.smoothing_kernel(smoothingRadius, dst)
 		property += particle.property * influence / density
 		
 	return property
@@ -124,6 +122,7 @@ func calculate_shared_pressure(particleA : Particle, particleB : Particle):
 	var pressureB = convert_density_to_pressure(particleB.density)
 	
 	return (pressureA + pressureB) / 2
+
 	
 func calculate_pressure_force(particle: Particle):
 	var pressureForce = Vector2.ZERO
@@ -136,7 +135,7 @@ func calculate_pressure_force(particle: Particle):
 		var dst = pos.distance_to(otherParticle.position)
 		var dir = (otherParticle.position - pos) / dst
 
-		var influence = smoothing_kernel_derivative(smoothingRadius, pos.distance_to(otherParticle.position))
+		var influence = SmoothingFunction.smoothing_kernel_derivative(smoothingRadius, pos.distance_to(otherParticle.position))
 		var sharedPressure = calculate_shared_pressure(particle, otherParticle)
 		pressureForce += - sharedPressure * dir * mass * influence / otherParticle.density
 		
@@ -144,6 +143,7 @@ func calculate_pressure_force(particle: Particle):
 	
 	
 func _input(event):
+	
 	if event is InputEventKey and event.pressed and event.keycode == KEY_T:
 		always_on_top = !always_on_top
 		DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_ALWAYS_ON_TOP, always_on_top)
