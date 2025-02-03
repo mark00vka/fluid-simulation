@@ -7,8 +7,8 @@ offsets = PackedFloat32Array(0, 0.485149, 1)
 colors = PackedColorArray(0, 0.316667, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1)
 
 [sub_resource type="Gradient" id="Gradient_ervxk"]
-offsets = PackedFloat32Array(0, 0.559406, 0.772277, 1)
-colors = PackedColorArray(0, 0.183333, 1, 1, 0, 0.81, 0.027, 1, 0.968333, 1, 0.05, 1, 1, 0.1, 0, 1)
+offsets = PackedFloat32Array(0, 0.539604, 0.772277, 1)
+colors = PackedColorArray(0, 0.183333, 1, 1, 0, 0.81, 0.027, 1, 0.968333, 1, 0.05, 1, 1, 0, 0.0166664, 1)
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -18,13 +18,17 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_jfgaf")
-numberOfParticles = 300
-s = -695
-smoothingRadius = 100.0
+numberOfParticles = null
+numberOfRows = null
+startingVelocity = null
+particleRadius = null
+s = 135
+smoothingRadius = 370.0
+separation = null
 gravity = 0.0
-damping = 0.8
-targetDensity = 0.02
-pressureMultiplier = 66.2
+damping = 0.4
+targetDensity = 0.01
+pressureMultiplier = 100.0
 densityGradient = SubResource("Gradient_54mrv")
 speedGradient = SubResource("Gradient_ervxk")
 

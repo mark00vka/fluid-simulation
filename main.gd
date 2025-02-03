@@ -10,7 +10,7 @@ const mass = 1
 @export var numberOfRows : int = 10
 @export var startingVelocity := Vector2.ZERO
 @export var particleRadius : float = 5.0
-@export var s = 15
+@export var s = 30
 
 @export_category("")
 @export_range(50, 1000, 10) var smoothingRadius : float = 20.0
@@ -19,9 +19,11 @@ const mass = 1
 @export var damping : float = 1.0
 
 @export_category("")
-@export_range(0.01, 0.07, 0.001) var targetDensity : float = 1.0
+@export_range(0.01, 0.07, 0.001) var targetDensity:float = 0.1
+	
 @export_range(1, 100, 0.1) var pressureMultiplier : float = 1.0
 @export var densityGradient : Gradient
+@export var speedGradient : Gradient
 
 var viewportSize : Vector2i = DisplayServer.window_get_size()
 
@@ -51,8 +53,10 @@ func _process(delta: float) -> void:
 	if Engine.get_process_frames() % 100 != 0:
 		pass
 	
-	spatialLookup.generateSpatialLookup()
+	for i in range(particles.size()):
+		particles[i].update_predicted_position(delta)
 	
+	spatialLookup.generateSpatialLookup()
 	
 	for i in range(particles.size()):
 		particles[i].update_densities()
@@ -67,29 +71,31 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
-	for i in range(viewportSize.x / s + 1):
-		for j in range(viewportSize.y / s + 1):
-			var density = calculate_density(Vector2i(i, j) * s)
-			var densityError = inverse_lerp(targetDensity * 0.5, targetDensity * 1.5, density)
-			var color = sample_gradient(densityError)
-			color.a = 0.3
-			draw_circle(Vector2i(i, j) * s, s, color)
+	if s > 0:
+		for i in range(viewportSize.x / s + 1):
+			for j in range(viewportSize.y / s + 1):
+				var density = calculate_density(Vector2i(i, j) * s)
+				var densityError = inverse_lerp(targetDensity * 0.5, targetDensity * 1.5, density)
+				var color = sample_gradient(densityGradient, densityError)
+				color.a = 0.3
+				draw_circle(Vector2i(i, j) * s, s, color)
 			
 	var selected_particles = spatialLookup.get_particle_indices(get_global_mouse_position())
 	
 	for i in range(particles.size()):
-		draw_circle(particles[i].position, particleRadius, Color.BLACK)
+		var speedL = inverse_lerp(5, 200, particles[i].velocity.length())
+		draw_circle(particles[i].position, particleRadius, sample_gradient(speedGradient, speedL))
 		
 		
-func sample_gradient(l : float):
-	return densityGradient.sample(l)
+func sample_gradient(gradient: Gradient, l : float):
+	return gradient.sample(l)
 		
 
 func calculate_density(pos: Vector2):
 	var density = 0
 	
 	for particleIndex in spatialLookup.get_particle_indices(pos):
-		var dst = pos.distance_to(particles[particleIndex].position)
+		var dst = pos.distance_to(particles[particleIndex].predictedPosition)
 		var influence = SmoothingFunction.smoothing_kernel(smoothingRadius, dst)
 		density += mass * influence
 		
@@ -107,7 +113,7 @@ func calculate_property(pos: Vector2):
 	
 	for particle in particles:
 		var density = particle.density
-		var dst = pos.distance_to(particle.position)
+		var dst = pos.distance_to(particle.predictedPosition)
 		var influence = SmoothingFunction.smoothing_kernel(smoothingRadius, dst)
 		property += particle.property * influence / density
 		
@@ -124,15 +130,15 @@ func calculate_shared_pressure(particleA : Particle, particleB : Particle):
 func calculate_pressure_force(particle: Particle):
 	var pressureForce = Vector2.ZERO
 	
-	for otherParticleIndex in spatialLookup.get_particle_indices(particle.position):
-		var pos = particle.position
+	for otherParticleIndex in spatialLookup.get_particle_indices(particle.predictedPosition):
+		var pos = particle.predictedPosition
 		var otherParticle = particles[otherParticleIndex]
-		if otherParticle.position == pos: continue
+		if otherParticle.predictedPosition == pos: continue
 		
-		var dst = pos.distance_to(otherParticle.position)
-		var dir = (otherParticle.position - pos) / dst
+		var dst = pos.distance_to(otherParticle.predictedPosition)
+		var dir = (otherParticle.predictedPosition - pos) / dst
 
-		var influence = SmoothingFunction.smoothing_kernel_derivative(smoothingRadius, pos.distance_to(otherParticle.position))
+		var influence = SmoothingFunction.smoothing_kernel_derivative(smoothingRadius, pos.distance_to(otherParticle.predictedPosition))
 		var sharedPressure = calculate_shared_pressure(particle, otherParticle)
 		pressureForce += - sharedPressure * dir * mass * influence / otherParticle.density
 		
@@ -151,7 +157,8 @@ func _input(event):
 	
 class Particle:
 	var position: Vector2
-	var velocity: Vector2
+	var predictedPosition: Vector2
+	var velocity: Vector2 = Vector2.ZERO
 	var property = 1
 	var density = 0
 	
@@ -172,29 +179,35 @@ class Particle:
 
 		velocity += pressureAcceleration * delta
 	
+	func update_predicted_position(delta: float):
+		predictedPosition = handle_collision(position + velocity * 1 / 20)
+	
 	func update_position(delta : float):
 		position += velocity * delta
-		handle_collision()
+		position = handle_collision(position)
 		
 		
 	func update_densities():
-		density = simulation.calculate_density(position)
+		density = simulation.calculate_density(predictedPosition)
 		
 		
-	func handle_collision():
-		if position.y > simulation.viewportSize.y - simulation.particleRadius:
+		
+		
+	func handle_collision(pos: Vector2):
+		if pos.y > simulation.viewportSize.y - simulation.particleRadius:
 			velocity.y *= -1 * simulation.damping
-			position.y = simulation.viewportSize.y - simulation.particleRadius
+			pos.y = simulation.viewportSize.y - simulation.particleRadius
 			
-		if  position.y < 0 + simulation.particleRadius:
+		if  pos.y < 0 + simulation.particleRadius:
 			velocity.y *= -1 * simulation.damping
-			position.y = 0 + simulation.particleRadius
+			pos.y = 0 + simulation.particleRadius
 	
-		if position.x > simulation.viewportSize.x - simulation.particleRadius:
+		if pos.x > simulation.viewportSize.x - simulation.particleRadius:
 			velocity.x *= -1 * simulation.damping
-			position.x = simulation.viewportSize.x - simulation.particleRadius
+			pos.x = simulation.viewportSize.x - simulation.particleRadius
 			
-		if  position.x < 0 + simulation.particleRadius:
+		if  pos.x < 0 + simulation.particleRadius:
 			velocity.x *= -1 * simulation.damping
-			position.x = 0 + simulation.particleRadius
+			pos.x = 0 + simulation.particleRadius
+		return pos
 	
