@@ -20,7 +20,7 @@ const mass = 1
 
 @export_category("")
 @export_range(0.01, 0.07, 0.001) var targetDensity : float = 1.0
-@export_range(1, 10, 0.1) var pressureMultiplier : float = 1.0
+@export_range(1, 100, 0.1) var pressureMultiplier : float = 1.0
 @export var densityGradient : Gradient
 
 var viewportSize : Vector2i = DisplayServer.window_get_size()
@@ -52,7 +52,8 @@ func _process(delta: float) -> void:
 		pass
 	
 	spatialLookup.generateSpatialLookup()
-		
+	
+	
 	for i in range(particles.size()):
 		particles[i].update_densities()
 		
@@ -77,11 +78,7 @@ func _draw() -> void:
 	var selected_particles = spatialLookup.get_particle_indices(get_global_mouse_position())
 	
 	for i in range(particles.size()):
-		var densityError = inverse_lerp(targetDensity * 0.5, targetDensity * 1.5, particles[i].density)
-		if i in selected_particles:
-			draw_circle(particles[i].position, particleRadius, Color.REBECCA_PURPLE)
-		else:
-			draw_circle(particles[i].position, particleRadius, Color.BLACK)
+		draw_circle(particles[i].position, particleRadius, Color.BLACK)
 		
 		
 func sample_gradient(l : float):
@@ -91,8 +88,8 @@ func sample_gradient(l : float):
 func calculate_density(pos: Vector2):
 	var density = 0
 	
-	for particle in particles:
-		var dst = pos.distance_to(particle.position)
+	for particleIndex in spatialLookup.get_particle_indices(pos):
+		var dst = pos.distance_to(particles[particleIndex].position)
 		var influence = SmoothingFunction.smoothing_kernel(smoothingRadius, dst)
 		density += mass * influence
 		
@@ -127,9 +124,9 @@ func calculate_shared_pressure(particleA : Particle, particleB : Particle):
 func calculate_pressure_force(particle: Particle):
 	var pressureForce = Vector2.ZERO
 	
-	for otherParticle in particles:
+	for otherParticleIndex in spatialLookup.get_particle_indices(particle.position):
 		var pos = particle.position
-		
+		var otherParticle = particles[otherParticleIndex]
 		if otherParticle.position == pos: continue
 		
 		var dst = pos.distance_to(otherParticle.position)
@@ -143,7 +140,6 @@ func calculate_pressure_force(particle: Particle):
 	
 	
 func _input(event):
-	
 	if event is InputEventKey and event.pressed and event.keycode == KEY_T:
 		always_on_top = !always_on_top
 		DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_ALWAYS_ON_TOP, always_on_top)

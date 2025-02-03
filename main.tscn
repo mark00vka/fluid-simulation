@@ -14,11 +14,13 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_jfgaf")
+numberOfParticles = 200
 particleRadius = 4.0
-smoothingRadius = 90.0
+s = 20
+smoothingRadius = 150.0
 gravity = 0.0
 damping = 0.4
-targetDensity = 0.024
+targetDensity = 0.054
 pressureMultiplier = 10.0
 densityGradient = SubResource("Gradient_54mrv")
 
